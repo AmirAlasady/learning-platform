@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}{{ topic.title }} - {{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <div class="mb-6">
+        <a href="{% url 'course_detail' course.id %}" class="text-indigo-600 hover:text-indigo-800">
+            &larr; Back to course
+        </a>
+        <span class="mx-2 text-gray-400">|</span>
+        <a href="{% url 'study_course' course.id %}" class="text-indigo-600 hover:text-indigo-800">
+            Back to study interface
+        </a>
+    </div>
+    
+    {% if messages %}
+    <div class="mb-6">
+        {% for message in messages %}
+            <div class="p-4 mb-4 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="p-6">
+            <h1 class="text-2xl font-bold mb-4 protected-content">{{ topic.title }}</h1>
+            <p class="text-gray-600 mb-4 protected-content">{{ topic.description }}</p>
+            
+            <div class="mt-8 topic-content">
+                {% if topic.VIDEO_CINTETN_FILE %}
+                <div class="aspect-w-16 aspect-h-9">
+                    <video id="topic-video" 
+                           controls 
+                           class="w-full rounded-lg protected-video" 
+                           data-topic-id="{{ topic.id }}"
+                           controlsList="nodownload noremoteplayback" 
+                           disablePictureInPicture="true"
+                           oncontextmenu="return false;">
+                        <source src="{{ topic.VIDEO_CINTETN_FILE.url }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                {% else %}
+                <div class="bg-gray-100 p-4 rounded-lg text-center">
+                    <p>Video content not available.</p>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Hidden form for video completion -->
+            <form id="completion-form" method="post" action="{% url 'mark_topic_completed' topic.id %}" style="display: none;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'topic_view' topic.id %}">
+            </form>
+            
+            <div class="mt-4">
+                {% if not topic_progress.completed %}
+                <div class="text-center">
+                    <p class="text-gray-600 mb-4">The video will be automatically marked as completed when you finish watching.</p>
+                    <button id="manual-complete-btn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                        Mark Video as Completed
+                    </button>
+                    <p class="mt-2 text-sm text-gray-500">
+                        If the video doesn't automatically mark as completed, use this button.
+                    </p>
+                </div>
+                {% else %}
+                <div class="text-center">
+                    <span class="bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded inline-block">
+                        Completed ✓
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="mt-8 flex justify-between items-center">
+                <div>
+                    {% if prev_topic %}
+                    <a href="{% url 'topic_view' prev_topic.id %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded transition">
+                        &larr; Previous
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    {% if next_topic %}
+                    <a href="{% url 'topic_view' next_topic.id %}" id="next-topic-link" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded transition">
+                        Next &rarr;
+                    </a>
+                    {% else %}
+                    <a href="{% url 'course_detail' course.id %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded transition">
+                        Finish Section
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const video = document.getElementById('topic-video');
+    const completionForm = document.getElementById('completion-form');
+    const manualCompleteBtn = document.getElementById('manual-complete-btn');
+    
+    // Variable to track if we've already submitted to prevent multiple submissions
+    window.topicMarkedAsCompleted = {% if topic_progress.completed %}true{% else %}false{% endif %};
+    
+    function markAsCompleted() {
+        if (!window.topicMarkedAsCompleted) {
+            window.topicMarkedAsCompleted = true;
+            completionForm.submit();
+        }
+    }
+    
+    if (video && completionForm) {
+        // Apply additional video protections
+        video.addEventListener('copy', function(e) {
+            e.preventDefault();
+            return false;
+        });
+        video.addEventListener('cut', function(e) {
+            e.preventDefault();
+            return false;
+        });
+        
+        // When video ends, submit the completion form
+        video.addEventListener('ended', function() {
+            console.log('Video ended, marking as completed');
+            markAsCompleted();
+        });
+        
+        // Also check periodically near the end to catch cases where the ended event might not fire
+        video.addEventListener('timeupdate', function() {
+            // If we're within 1 second of the end
+            if (this.duration > 0 && 
+                this.currentTime > 0 && 
+                this.duration - this.currentTime < 1 &&
+                !window.videoNearEndTriggered) {
+                
+                console.log('Video near end, marking as completed');
+                window.videoNearEndTriggered = true;
+                markAsCompleted();
+            }
+        });
+    }
+    
+    // Add manual completion button handler
+    if (manualCompleteBtn) {
+        manualCompleteBtn.addEventListener('click', function() {
+            console.log('Manual completion button clicked');
+            markAsCompleted();
+        });
+    }
+});
+</script>
+{% endblock %}

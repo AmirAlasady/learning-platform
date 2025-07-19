@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}{{ topic.title }} - {{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <div class="mb-6">
+        <a href="{% url 'course_detail' course.id %}" class="text-indigo-600 hover:text-indigo-800">
+            &larr; Back to course
+        </a>
+        <span class="mx-2 text-gray-400">|</span>
+        <a href="{% url 'study_course' course.id %}" class="text-indigo-600 hover:text-indigo-800">
+            Back to study interface
+        </a>
+    </div>
+    
+    {% if messages %}
+    <div class="mb-6">
+        {% for message in messages %}
+            <div class="p-4 mb-4 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="p-6">
+            <h1 class="text-2xl font-bold mb-4">{{ topic.title }}</h1>
+            <p class="text-gray-600 mb-4">{{ topic.description }}</p>
+            
+            <div class="mt-8 prose max-w-none">
+                {{ topic.ARTICLE_CONTENT|safe }}
+            </div>
+            
+            <div class="mt-8 flex justify-between items-center">
+                <div>
+                    {% if prev_topic %}
+                    <a href="{% url 'topic_view' prev_topic.id %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded transition">
+                        &larr; Previous
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <div id="completion-controls">
+                    {% if not topic_progress.completed %}
+                    <form method="post" action="{% url 'mark_topic_completed' topic.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'topic_view' topic.id %}">
+                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition">
+                            Mark as Complete
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded inline-block">
+                        Completed ✓
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    {% if next_topic %}
+                    <a href="{% url 'topic_view' next_topic.id %}" id="next-topic-link" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded transition">
+                        Next &rarr;
+                    </a>
+                    {% else %}
+                    <a href="{% url 'course_detail' course.id %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded transition">
+                        Finish Section
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

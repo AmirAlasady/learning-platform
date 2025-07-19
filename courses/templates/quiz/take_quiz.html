@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz: {{ quiz.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <!-- Quiz header -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+        <div class="bg-indigo-600 px-6 py-4">
+            <h1 class="text-xl font-bold text-white">{{ quiz.name }}</h1>
+            <p class="text-indigo-100 text-sm">{{ quiz.description }}</p>
+        </div>
+        
+        <div class="p-4 bg-indigo-50 flex justify-between items-center">
+            <div>
+                <span class="font-medium text-indigo-800">Question {{ progress.current_index|add:1 }} of {{ progress.total }}</span>
+                <div class="mt-1 bg-white rounded-full h-2.5 w-64">
+                    <div class="bg-indigo-600 h-2.5 rounded-full" style="width: {{ progress.current_index|add:1|divisibleby:progress.total|floatformat:2 }}%;"></div>
+                </div>
+            </div>
+            
+            {% if remaining_seconds %}
+            <div>
+                <div class="text-right">
+                    <span class="font-medium text-indigo-800">Time remaining:</span>
+                </div>
+                <div id="timer" class="text-xl font-bold text-indigo-800" data-remaining="{{ remaining_seconds }}">
+                    --:--
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Quiz navigation -->
+    <div class="flex mb-6 overflow-x-auto">
+        {% for status in progress.question_statuses %}
+            <a href="{% url 'take_quiz' quiz_attempt.id status.index %}" 
+               class="flex-shrink-0 w-10 h-10 flex items-center justify-center m-1 rounded-full 
+                     {% if status.index == progress.current_index %}
+                        bg-indigo-600 text-white
+                     {% elif status.answered %}
+                        bg-green-100 text-green-800 border border-green-300
+                     {% else %}
+                        bg-gray-100 text-gray-800 border border-gray-200
+                     {% endif %}">
+                {{ status.index|add:1 }}
+            </a>
+        {% endfor %}
+    </div>
+    
+    <!-- Current question -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+        <div class="p-6">
+            <h2 class="text-lg font-semibold mb-4">{{ question.text }}</h2>
+            
+            <form method="post" id="quiz-form">
+                {% csrf_token %}
+                
+                <div class="space-y-3 mb-6">
+                    {% for answer in answers %}
+                    <div class="border rounded-lg p-3 {% if selected_answer.id == answer.id %}bg-indigo-50 border-indigo-300{% endif %}">
+                        <label class="flex items-start cursor-pointer">
+                            <input type="radio" name="answer" value="{{ answer.id }}" 
+                                   class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                                   {% if selected_answer.id == answer.id %}checked{% endif %}>
+                            <span class="ml-3">{{ answer.text }}</span>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="flex justify-between">
+                    <button type="submit" name="action" value="prev" 
+                            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                            {% if progress.is_first %}disabled{% endif %}>
+                        Previous
+                    </button>
+                    
+                    {% if progress.is_last %}
+                        {% if progress.answered_all %}
+                        <button type="submit" name="action" value="complete" 
+                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            Submit Quiz
+                        </button>
+                        {% else %}
+                        <button type="submit" name="action" value="next" 
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Next
+                        </button>
+                        {% endif %}
+                    {% else %}
+                    <button type="submit" name="action" value="next" 
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Next
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Instructions -->
+    <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+        <p>
+            <span class="font-medium">Instructions:</span> Select the best answer for each question. 
+            You can navigate between questions using the Previous and Next buttons or by clicking on the question 
+            numbers above. You can review and change your answers before submitting.
+            {% if quiz.duration_minutes %}
+            The quiz has a time limit of {{ quiz.duration_minutes }} minutes.
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-submit form when an answer is selected (if configured)
+        const answerInputs = document.querySelectorAll('input[name="answer"]');
+        const autoSubmit = false; // Set to true if you want auto-submit
+        
+        if (autoSubmit) {
+            answerInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    document.getElementById('quiz-form').submit();
+                });
+            });
+        }
+        
+        // Timer functionality
+        const timerElement = document.getElementById('timer');
+        if (timerElement) {
+            const remainingSeconds = parseInt(timerElement.dataset.remaining);
+            
+            function updateTimer() {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                
+                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    alert('Time is up! Your quiz will be submitted automatically.');
+                    
+                    // Submit the form with action=complete
+                    const form = document.getElementById('quiz-form');
+                    const actionInput = document.createElement('input');
+                    actionInput.type = 'hidden';
+                    actionInput.name = 'action';
+                    actionInput.value = 'complete';
+                    form.appendChild(actionInput);
+                    form.submit();
+                }
+                
+                timeLeft -= 1;
+            }
+            
+            let timeLeft = remainingSeconds;
+            updateTimer();
+            const timerInterval = setInterval(updateTimer, 1000);
+        }
+    });
+</script>
+{% endblock %}

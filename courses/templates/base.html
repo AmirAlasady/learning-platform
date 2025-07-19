@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Course Study Platform{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <!-- Content protection CSS -->
+    <style>
+        /* Prevent text selection on protected content */
+        .protected-content {
+            -webkit-user-select: none;  /* Safari */
+            -ms-user-select: none;      /* IE 10+ */
+            user-select: none;          /* Standard syntax */
+            -webkit-touch-callout: none; /* iOS Safari */
+        }
+        
+        /* Add more protection for video elements */
+        video.protected-video {
+            pointer-events: auto;  /* Allow interaction but control what happens */
+            object-fit: contain;
+            max-width: 100%;
+            background: #000;
+        }
+        
+        /* Explicitly allow interaction for certificate downloads */
+        .certificate-download {
+            pointer-events: auto !important;
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+            -ms-user-select: auto !important;
+            -webkit-touch-callout: default !important;
+        }
+    </style>
+    
+    <!-- Content protection script -->
+    <script>
+        /**
+         * Content Protection Script
+         * Prevents various methods of downloading/saving protected content
+         */
+        (function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                // Prevent embedding in iframes from other domains
+                if (window.top !== window.self) {
+                    try {
+                        if (window.top.location.host !== window.location.host) {
+                            window.top.location.href = window.location.href;
+                        }
+                    } catch (e) {
+                        window.top.location.href = window.location.href;
+                    }
+                }
+                
+                // Disable right-click context menu selectively
+                document.addEventListener('contextmenu', function(e) {
+                    const targetElement = e.target;
+                    
+                    // Always allow context menu on certificate download elements
+                    if (targetElement.closest('.certificate-download') || 
+                        targetElement.matches('.certificate-download')) {
+                        return true;
+                    }
+                    
+                    // Prevent context menu on protected content
+                    if (targetElement.matches('video') || 
+                        targetElement.closest('.topic-content') ||
+                        targetElement.closest('#topic-video') ||
+                        targetElement.closest('.article-content') ||
+                        targetElement.matches('img')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                });
+                
+                // Disable keyboard shortcuts for saving/printing content
+                document.addEventListener('keydown', function(e) {
+                    // Check for Ctrl+S, Ctrl+U, Ctrl+P, Ctrl+Shift+I or Cmd equivalents
+                    if ((e.ctrlKey || e.metaKey) && 
+                        (e.key === 's' || e.key === 'u' || e.key === 'p' || 
+                        (e.shiftKey && e.key === 'i') || e.key === 'c')) {
+                        
+                        // Don't block these shortcuts in form input elements
+                        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                            return true;
+                        }
+                        
+                        e.preventDefault();
+                        return false;
+                    }
+                });
+                
+                // Apply video-specific protections
+                const videoElements = document.querySelectorAll('video');
+                videoElements.forEach(function(video) {
+                    // Disable download option
+                    video.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
+                    video.disablePictureInPicture = true;
+                    
+                    // Set the video DRM-related properties
+                    video.addEventListener('loadedmetadata', function() {
+                        // Try to prevent screen capture in some browsers
+                        try {
+                            if ('mediaSession' in navigator) {
+                                navigator.mediaSession.metadata = new MediaMetadata({
+                                    title: 'Protected Content',
+                                    artist: 'Learning Platform',
+                                });
+                            }
+                        } catch (e) {
+                            console.log('Media session API not supported');
+                        }
+                    });
+                    
+                    // Disable drag and drop
+                    video.addEventListener('dragstart', function(e) {
+                        e.preventDefault();
+                    });
+                    
+                    // Handle if someone tries to enter Picture-in-Picture mode
+                    video.addEventListener('enterpictureinpicture', function(e) {
+                        video.exitPictureInPicture().catch(error => {
+                            console.error(error);
+                        });
+                    });
+                });
+                
+                // Disable selecting text in protected areas
+                const protectedTextElements = document.querySelectorAll('.article-content, .topic-content');
+                protectedTextElements.forEach(function(element) {
+                    element.classList.add('protected-content');
+                });
+            });
+        })();
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- Navigation Header -->
+    <header class="bg-white shadow-md">
+        <nav class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-8">
+                <a href="{% url 'about' %}" class="text-xl font-bold text-indigo-600">LearnHub</a>
+                <div class="hidden md:flex space-x-6">
+                    <a href="{% url 'about' %}" class="text-gray-700 hover:text-indigo-600 transition">Home</a>
+                    <a href="{% url 'course_list' %}" class="text-gray-700 hover:text-indigo-600 transition">Courses</a>
+                </div>
+            </div>
+            
+            <div class="relative" id="accountDropdown">
+                <button class="flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition" id="accountDropdownButton">
+                    <span>Account</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                
+                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden" id="accountDropdownMenu">
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Profile</a>
+                        <a href="{% url 'logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Logout</a>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Login</a>
+                        <a href="{% url 'signup' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Sign Up</a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Mobile menu button -->
+            <div class="md:hidden">
+                <button type="button" class="text-gray-500 hover:text-gray-600 focus:outline-none focus:text-gray-600" aria-label="toggle menu">
+                    <svg viewBox="0 0 24 24" class="h-6 w-6 fill-current">
+                        <path fill-rule="evenodd" d="M4 5h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2z"></path>
+                    </svg>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Mobile Navigation Menu (hidden by default) -->
+    <div class="md:hidden hidden bg-white shadow-md">
+        <a href="{% url 'about' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Home</a>
+        <a href="{% url 'course_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Courses</a>
+        {% if user.is_authenticated %}
+            <a href="{% url 'profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Profile</a>
+            <a href="{% url 'logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Logout</a>
+        {% else %}
+            <a href="{% url 'login' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Login</a>
+            <a href="{% url 'signup' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Sign Up</a>
+        {% endif %}
+    </div>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8 flex-grow">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between">
+                <div class="mb-6 md:mb-0">
+                    <h2 class="text-xl font-bold mb-4">LearnHub</h2>
+                    <p class="text-gray-300">Empowering learners worldwide with quality education.</p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">Quick Links</h3>
+                    <ul class="space-y-2">
+                        <li><a href="{% url 'about' %}" class="text-gray-300 hover:text-white transition">Home</a></li>
+                        <li><a href="{% url 'course_list' %}" class="text-gray-300 hover:text-white transition">Courses</a></li>
+                        {% if user.is_authenticated %}
+                            <li><a href="{% url 'profile' %}" class="text-gray-300 hover:text-white transition">Profile</a></li>
+                        {% else %}
+                            <li><a href="{% url 'login' %}" class="text-gray-300 hover:text-white transition">Login</a></li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-gray-700 text-center text-gray-300">
+                <p>&copy; {% now "Y" %} LearnHub. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript for mobile menu toggle -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mobile menu toggle
+            const menuButton = document.querySelector('button[aria-label="toggle menu"]');
+            const mobileMenu = document.querySelector('.md\\:hidden.bg-white');
+            
+            if (menuButton && mobileMenu) {
+                menuButton.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                });
+            }
+            
+            // Account dropdown toggle
+            const accountDropdownButton = document.getElementById('accountDropdownButton');
+            const accountDropdownMenu = document.getElementById('accountDropdownMenu');
+            
+            if (accountDropdownButton && accountDropdownMenu) {
+                // Toggle dropdown on button click
+                accountDropdownButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    accountDropdownMenu.classList.toggle('hidden');
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!accountDropdownButton.contains(e.target) && !accountDropdownMenu.contains(e.target)) {
+                        accountDropdownMenu.classList.add('hidden');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

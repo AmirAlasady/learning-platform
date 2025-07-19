@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}DEBUG: {{ topic.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <h1 class="text-2xl font-bold mb-4">DEBUG MODE: {{ topic.title }}</h1>
+    
+    <div class="bg-yellow-100 p-4 rounded-lg mb-4">
+        <h2 class="font-bold">Debug Information:</h2>
+        <ul class="list-disc pl-6">
+            <li>Topic ID: {{ topic.id }}</li>
+            <li>Topic Title: {{ topic.title }}</li>
+            <li>Section ID: {{ topic.section.id }}</li>
+            <li>Section Title: {{ topic.section.title }}</li>
+            <li>Course ID: {{ course.id }}</li>
+            <li>Course Title: {{ course.title }}</li>
+            <li>Course Type: {{ course.course_type }}</li>
+            <li>Topic Completed: {{ topic_progress.completed }}</li>
+            <li>Topic Is Active: {{ topic_progress.is_active }}</li>
+        </ul>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md overflow-hidden p-6">
+        <div class="mt-4 mb-4">
+            {% if topic.VIDEO_CINTETN_FILE %}
+            <div class="aspect-w-16 aspect-h-9">
+                <video id="debug-video" controls class="w-full rounded-lg" data-topic-id="{{ topic.id }}">
+                    <source src="{{ topic.VIDEO_CINTETN_FILE.url }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            {% else %}
+            <div class="bg-red-100 p-4 rounded-lg text-center">
+                <p>No video file available!</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="bg-blue-100 p-4 rounded-lg mb-4">
+            <h3 class="font-bold">Test Completion Options:</h3>
+            <div class="flex flex-col space-y-4 mt-4">
+                <!-- Regular completion form -->
+                <form id="regular-form" method="post" action="{% url 'mark_topic_completed' topic.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{% url 'topic_view' topic.id %}">
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                        Test Normal Completion
+                    </button>
+                </form>
+                
+<!-- Add this form just below your other debug forms in debug_video.html -->
+<form method="post" action="/subscribtion/super-debug/{{ topic.id }}/">
+    {% csrf_token %}
+    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+        Super Detailed Debug (Next Section Focus)
+    </button>
+</form>
+                <!-- Debug completion form -->
+                <form id="debug-form" method="post" action="/subscribtion/mark-completed-debug/{{ topic.id }}/">
+                    {% csrf_token %}
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                        Test Debug Completion (View Logs)
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="mt-8">
+            <h3 class="font-bold mb-2">Simulated Video Controls:</h3>
+            <div class="flex space-x-4">
+                <button id="simulate-ended" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                    Simulate Video Ended Event
+                </button>
+                <button id="simulate-near-end" class="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700">
+                    Simulate Near End
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{% url 'course_detail' course.id %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+            Back to Course
+        </a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up event listeners for debug buttons
+    const video = document.getElementById('debug-video');
+    const simulateEndedBtn = document.getElementById('simulate-ended');
+    const simulateNearEndBtn = document.getElementById('simulate-near-end');
+    
+    if (simulateEndedBtn && video) {
+        simulateEndedBtn.addEventListener('click', function() {
+            console.log('Simulating video ended event');
+            // Create and dispatch an ended event
+            const endedEvent = new Event('ended');
+            video.dispatchEvent(endedEvent);
+        });
+    }
+    
+    if (simulateNearEndBtn && video) {
+        simulateNearEndBtn.addEventListener('click', function() {
+            console.log('Simulating video near end');
+            // Set video properties to simulate being near the end
+            Object.defineProperty(video, 'duration', {value: 100});
+            Object.defineProperty(video, 'currentTime', {value: 99.5});
+            // Create and dispatch a timeupdate event
+            const timeUpdateEvent = new Event('timeupdate');
+            video.dispatchEvent(timeUpdateEvent);
+        });
+    }
+    
+    // Set up actual event handlers for video
+    if (video) {
+        // When video ends, submit the regular form
+        video.addEventListener('ended', function() {
+            console.log('DEBUG: Video ended event fired');
+            document.getElementById('regular-form').submit();
+        });
+        
+        // Handle timeupdate for near-end detection
+        video.addEventListener('timeupdate', function() {
+            if (this.duration > 0 && 
+                this.currentTime > 0 && 
+                this.duration - this.currentTime < 1 &&
+                !window.videoNearEndTriggered) {
+                
+                console.log('DEBUG: Video near end detected');
+                window.videoNearEndTriggered = true;
+                document.getElementById('regular-form').submit();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
