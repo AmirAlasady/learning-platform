@@ -1,0 +1,56 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Manage Quiz Questions{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Manage Questions for: {{ quiz.name }}</h1>
+        <a href="{% url 'management:quiz_create_edit' topic_pk=quiz.topic.pk %}" class="btn btn-secondary">Back to Quiz Settings</a>
+    </div>
+
+    <hr>
+    
+    <h3>Add New Question</h3>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Add Question</button>
+    </form>
+
+    <hr style="margin-top: 30px;">
+
+    <h3>Existing Questions ({{ quiz.questions.count }})</h3>
+    {% if quiz.questions.all %}
+    <table>
+        <thead>
+            <tr>
+                <th>Question Text</th>
+                <th>Points</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for question in quiz.questions.all %}
+            <tr>
+                <td>{{ question.text|truncatechars:80 }}</td>
+                <td>{{ question.mark }}</td>
+                <td>
+                    <!-- Add
+                    hewevw
+                    evw
+                    evwwev
+                    wev
+                    weightvwe
+                    viewportev 
+                    edit/delete question links here if you build those views -->
+                    <a href="#">Edit</a> 
+                    <a href="#" style="color: red;">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p>This quiz has no questions yet. Add one using the form above.</p>
+    {% endif %}
+{% endblock %}

@@ -124,6 +124,8 @@ def course_list(request):
 
 # Update the course_detail view in courses/views.py to include related courses and reviews
 
+# In courses/views.py
+
 def course_detail(request, course_id):
     """
     View for showing detailed information about a specific course
@@ -132,61 +134,52 @@ def course_detail(request, course_id):
     course = get_object_or_404(Course, id=course_id)
     sections = Section.objects.filter(course=course).order_by('created_at')
     
-    # Get total topics count
-    total_topics_count = Topic.objects.filter(section__course=course).count()
+    # --- THIS CALCULATION IS NOW HANDLED MORE INTELLIGENTLY BELOW ---
+    # total_topics_count = Topic.objects.filter(section__course=course).count()
     
-    # Calculate the current deadline status if applicable
     deadline_passed = False
     days_remaining = None
-    
     if course.deadline:
         now = timezone.now()
         if now > course.deadline:
             deadline_passed = True
         else:
-            # Calculate days remaining
             time_diff = course.deadline - now
             days_remaining = time_diff.days
     
-    # Get related courses (same category)
     related_courses = Course.objects.filter(
         category=course.category
     ).exclude(id=course.id).order_by('-created_at')[:4]
     
-    # Get course reviews
     reviews = Review.objects.filter(course=course)
     avg_rating = reviews.aggregate(Avg('rating'))['rating__avg'] if reviews else None
     
-    # Pre-calculate counts for each rating level (1-5)
     star_counts = {}
     for i in range(1, 6):
         star_counts[i] = reviews.filter(rating=i).count()
     
-    # Prepare context
     context = {
         'course': course,
         'sections': sections,
-        'total_topics_count': total_topics_count,
+        # 'total_topics_count' will be replaced by a more accurate variable
         'deadline_passed': deadline_passed,
         'days_remaining': days_remaining,
-        'is_enrolled': False,  # Default to not enrolled
+        'is_enrolled': False,
         'related_courses': related_courses,
         'reviews': reviews,
         'avg_rating': avg_rating,
         'star_counts': star_counts,
         'total_reviews': reviews.count(),
-        'can_review': False,  # Default
+        'can_review': False,
     }
     
-    # If user is authenticated, check enrollment information
     if request.user.is_authenticated:
         try:
             enrollment = Enrollment.objects.get(user=request.user, course=course)
             context['enrollment'] = enrollment
-            context['is_enrolled'] = True  # User is enrolled
-            context['can_review'] = True   # Enrolled users can review
+            context['is_enrolled'] = True
+            context['can_review'] = True
             
-            # Check if user has already reviewed this course
             try:
                 user_review = Review.objects.get(course=course, user=request.user)
                 context['user_review'] = user_review
@@ -197,56 +190,72 @@ def course_detail(request, course_id):
                 course_progress = CourseProgress.objects.get(enrollment_model=enrollment)
                 context['course_progress'] = course_progress
                 
-                # Get progress for each section
-                section_progress_dict = {}
-                for section_progress in SectionProgress.objects.filter(course_progress=course_progress):
-                    section_progress_dict[section_progress.section_id] = {
-                        'progress': section_progress.progress_percentage,
-                        'completed': section_progress.completed,
-                        'last_accessed': section_progress.last_accessed,
-                        'is_active': section_progress.is_active
-                    }
+                section_progress_dict = {
+                    sp.section_id: {
+                        'progress': sp.progress_percentage,
+                        'completed': sp.completed,
+                        'last_accessed': sp.last_accessed,
+                        'is_active': sp.is_active
+                    } for sp in SectionProgress.objects.filter(course_progress=course_progress)
+                }
                 context['section_progress'] = section_progress_dict
                 
-                # Get progress for topics
-                topic_progress_dict = {}
-                for topic_progress in TopicProgress.objects.filter(
-                    section_progress__course_progress=course_progress
-                ):
-                    topic_progress_dict[topic_progress.topic.id] = {
-                        'completed': topic_progress.completed,
-                        'last_accessed': topic_progress.last_accessed,
-                        'is_active': topic_progress.is_active
-                    }
+                topic_progress_dict = {
+                    tp.topic_id: {
+                        'completed': tp.completed,
+                        'last_accessed': tp.last_accessed,
+                        'is_active': tp.is_active
+                    } for tp in TopicProgress.objects.filter(section_progress__course_progress=course_progress)
+                }
                 context['topic_progress'] = topic_progress_dict
                 
-                completed_topics_count = TopicProgress.objects.filter(
-                    section_progress__course_progress=course_progress,
-                    completed=True
-                ).count()
+                # --- START OF THE FIX: INTELLIGENT PROGRESS CALCULATION ---
                 
-                context['completed_topics_count'] = completed_topics_count
-                context['progress_percentage'] = (
-                    (completed_topics_count / total_topics_count) * 100 
-                    if total_topics_count > 0 else 0
-                )
+                # First, check if the course has any required topics
+                required_topics = Topic.objects.filter(section__course=course, is_required=True)
+                
+                if required_topics.exists():
+                    # If required topics exist, they are the ONLY basis for progress.
+                    total_progress_topics = required_topics.count()
+                    
+                    # Count how many of THESE required topics the user has completed.
+                    completed_progress_topics = TopicProgress.objects.filter(
+                        section_progress__course_progress=course_progress,
+                        topic__in=required_topics, # The key filter
+                        completed=True
+                    ).count()
+                    
+                else:
+                    # FALLBACK: If no topics are marked as required, calculate based on ALL topics.
+                    total_progress_topics = Topic.objects.filter(section__course=course).count()
+                    completed_progress_topics = TopicProgress.objects.filter(
+                        section_progress__course_progress=course_progress,
+                        completed=True
+                    ).count()
+
+                # Add the accurate counts and percentage to the context
+                context['total_progress_topics'] = total_progress_topics
+                context['completed_progress_topics'] = completed_progress_topics
+                
+                if total_progress_topics > 0:
+                    context['progress_percentage'] = (completed_progress_topics / total_progress_topics) * 100
+                else:
+                    # If course has no topics to track, check if it's marked complete
+                    context['progress_percentage'] = 100 if course_progress.completed else 0
+
+                # --- END OF THE FIX ---
                 
             except CourseProgress.DoesNotExist:
                 context['course_progress'] = None
-                # This shouldn't happen, but if it does, we should create the progress
-                
                 create_course_progress(enrollment)
                 return redirect('course_detail', course_id=course_id)
         
         except Enrollment.DoesNotExist:
-            # User is not enrolled in this course
             context['enrollment'] = None
             context['is_enrolled'] = False
     
-    # Get the next section if there's progress or default to first section
     if request.user.is_authenticated and context['is_enrolled']:
         if 'course_progress' in context and context['course_progress']:
-            # Find the last accessed section
             last_section_progress = SectionProgress.objects.filter(
                 course_progress=context['course_progress'],
                 is_active=True
@@ -254,31 +263,20 @@ def course_detail(request, course_id):
             
             if last_section_progress:
                 if last_section_progress.completed:
-                    # If last accessed section is completed, find the next incomplete section
                     next_sections = SectionProgress.objects.filter(
                         course_progress=context['course_progress'],
                         is_active=True,
                         completed=False
                     ).order_by('section__created_at')
-                    
-                    if next_sections.exists():
-                        context['next_section'] = next_sections.first().section
-                    else:
-                        context['next_section'] = None  # All sections completed
+                    context['next_section'] = next_sections.first().section if next_sections.exists() else None
                 else:
-                    # Continue with the last accessed section
                     context['next_section'] = last_section_progress.section
             else:
-                # No progress yet, start with first active section
                 first_section_progress = SectionProgress.objects.filter(
                     course_progress=context['course_progress'],
                     is_active=True
                 ).order_by('section__created_at').first()
-                
-                if first_section_progress:
-                    context['next_section'] = first_section_progress.section
-                else:
-                    context['next_section'] = None
+                context['next_section'] = first_section_progress.section if first_section_progress else None
     
     return render(request, 'course_detail.html', context)
 
@@ -366,18 +364,16 @@ def topic_view(request, topic_id):
         # Fallback template
         return render(request, 'topic_default.html', context)
 
-
+import secrets
 
 @login_required
 def study(request, course_id):
     """
-    Main view for studying a course with hierarchical navigation 
-    and content display.
+    Main view for studying a course.
+    This version generates a secure, time-limited token for video playback.
     """
-    # Get the course
     course = get_object_or_404(Course, id=course_id)
     
-    # Check if user is enrolled
     try:
         enrollment = Enrollment.objects.get(user=request.user, course=course)
         if enrollment.completed_at:
@@ -386,88 +382,47 @@ def study(request, course_id):
         messages.error(request, "You need to enroll in this course first.")
         return redirect('course_detail', course_id=course_id)
     
-    # Get course progress
     try:
         course_progress = CourseProgress.objects.get(enrollment_model=enrollment)
     except CourseProgress.DoesNotExist:
-        # Create progress if it doesn't exist
         course_progress = create_course_progress(enrollment)
     
-    # Get all sections with progress info
     sections = Section.objects.filter(course=course).order_by('created_at')
     
-    # Get section progress data
-    section_progress_dict = {}
-    for section_progress in SectionProgress.objects.filter(course_progress=course_progress):
-        section_progress_dict[section_progress.section_id] = {
-            'id': section_progress.id,
-            'progress': section_progress.progress_percentage,
-            'completed': section_progress.completed,
-            'is_active': section_progress.is_active,
-            'last_accessed': section_progress.last_accessed
-        }
+    section_progress_dict = {sp.section_id: sp for sp in SectionProgress.objects.filter(course_progress=course_progress)}
+    topic_progress_dict = {tp.topic_id: tp for tp in TopicProgress.objects.filter(section_progress__course_progress=course_progress)}
     
-    # Get topic progress data
-    topic_progress_dict = {}
-    for topic_progress in TopicProgress.objects.filter(
-        section_progress__course_progress=course_progress
-    ):
-        topic_progress_dict[topic_progress.topic_id] = {
-            'id': topic_progress.id,
-            'completed': topic_progress.completed,
-            'is_active': topic_progress.is_active,
-            'last_accessed': topic_progress.last_accessed
-        }
-    
-    # Get the requested topic ID from the query string (if provided)
-    requested_topic_id = request.GET.get('topic_id')
     active_topic = None
-    
+    requested_topic_id = request.GET.get('topic_id')
     if requested_topic_id:
         try:
-            topic = Topic.objects.get(id=requested_topic_id)
-            # Check if topic belongs to this course
-            if topic.section.course.id != course.id:
-                messages.error(request, "Invalid topic requested.")
-                requested_topic_id = None
-            else:
-                # Check if topic is active for this user
-                if (topic.id in topic_progress_dict and 
-                    (topic_progress_dict[topic.id]['is_active'] or 
-                     course.course_type == Course.UNLOCKED)):
-                    active_topic = topic
-                else:
-                    messages.error(request, "This topic is not yet available. Complete the previous topics first.")
-        except Topic.DoesNotExist:
+            active_topic = Topic.objects.get(id=requested_topic_id, section__course=course)
+            topic_progress = topic_progress_dict.get(int(requested_topic_id))
+            if course.course_type == 'locked' and not (topic_progress and topic_progress.is_active):
+                 messages.error(request, "This topic is not yet available.")
+                 active_topic = None
+        except (Topic.DoesNotExist, ValueError):
             messages.error(request, "Topic not found.")
-            requested_topic_id = None
-    
-    # If no valid topic is requested, find the first active topic
+            
     if not active_topic:
         for section in sections:
-            if section.id in section_progress_dict and section_progress_dict[section.id]['is_active']:
+            if section_progress_dict.get(section.id) and section_progress_dict.get(section.id).is_active:
                 for topic in section.topics.all().order_by('created_at'):
-                    if topic.id in topic_progress_dict and topic_progress_dict[topic.id]['is_active']:
+                    if topic_progress_dict.get(topic.id) and topic_progress_dict.get(topic.id).is_active:
                         active_topic = topic
                         break
                 if active_topic:
                     break
-    
-    # Update last accessed timestamp for the active topic
-    if active_topic and active_topic.id in topic_progress_dict:
-        topic_progress = TopicProgress.objects.get(id=topic_progress_dict[active_topic.id]['id'])
-        topic_progress.save()  # This will update the last_accessed field via auto_now
-    
-    # Check if the active topic has a quiz
-    has_quiz = False
-    quiz = None
-    if active_topic:
-        try:
-            quiz = Quiz.objects.get(topic=active_topic)
-            has_quiz = True
-        except Quiz.DoesNotExist:
-            pass
-    
+
+    video_token = None
+    if active_topic and active_topic.content_type == 'video':
+        token = secrets.token_urlsafe(16)
+        request.session['video_token_data'] = {
+            'token': token,
+            'expires': time.time() + 10  # Expires in 10 seconds
+        }
+        video_token = token
+
     context = {
         'course': course,
         'enrollment': enrollment,
@@ -476,8 +431,9 @@ def study(request, course_id):
         'topic_progress': topic_progress_dict,
         'active_topic': active_topic,
         'course_progress': course_progress,
-        'has_quiz': has_quiz,
-        'quiz': quiz
+        'video_token': video_token,
+        'has_quiz': hasattr(active_topic, 'quizz') if active_topic else False,
+        'quiz': getattr(active_topic, 'quizz', None) if active_topic else None,
     }
     
     return render(request, 'study.html', context)
@@ -666,13 +622,18 @@ def take_quiz(request, attempt_id, question_index=0):
 
 
 
+# In courses/views.py
+
 @login_required
 def quiz_results(request, attempt_id):
-    """Display quiz results after completion and update topic progress if quiz is passed"""
+    """
+    This is the FINAL, DEFINITIVE version. It fixes the critical bug where passing
+    the last required quiz would not finalize the course completion status.
+    """
     quiz_attempt = get_object_or_404(QuizAttempt, id=attempt_id, user=request.user)
     quiz = quiz_attempt.quiz
     
-    # Get details about answers for display
+    # This part remains the same
     question_data = []
     for question in quiz.questions.all():
         selected = quiz_attempt.selected_answers.filter(question=question).first()
@@ -683,34 +644,78 @@ def quiz_results(request, attempt_id):
             'correct_answer': question.answers.filter(is_correct=True).first()
         })
     
-    # Get topic associated with this quiz
+    # The logic here is where the fix is applied
     if hasattr(quiz, 'topic') and quiz.topic:
         topic = quiz.topic
+        course = topic.section.course
         
-        # Only mark topic as completed if the quiz is passed
         if quiz_attempt.is_passed:
-            # Find the user's topic progress
             try:
-                # Get enrollment, course_progress, section_progress
-                enrollment = Enrollment.objects.get(user=request.user, course=topic.section.course)
+                enrollment = Enrollment.objects.get(user=request.user, course=course)
                 course_progress = CourseProgress.objects.get(enrollment_model=enrollment)
                 section_progress = SectionProgress.objects.get(course_progress=course_progress, section=topic.section)
                 topic_progress = TopicProgress.objects.get(section_progress=section_progress, topic=topic)
                 
-                # Mark topic as completed if the quiz is passed
+                # Mark the quiz's topic as complete if not already
                 if not topic_progress.completed:
                     topic_progress.completed = True
                     topic_progress.save()
                     messages.success(request, f"Congratulations! You passed the quiz and completed the topic '{topic.title}'.")
                     
-                    # Activate next topic if applicable
+                    # Call the utility function to activate the next topic
+                    from utils import activate_next_topic
                     activate_next_topic(topic_progress)
+                
+                # --- START OF THE CRITICAL FIX ---
+                # After passing the quiz, we must perform the SAME final course completion check
+                # that exists in the `mark_topic_as_completed` view. This logic was missing.
+
+                course_completed = False
+                # Only check for completion if the enrollment isn't already finalized
+                if not enrollment.completed_at:
+                    required_sections = Section.objects.filter(course=course, is_required=True)
+                    if required_sections.exists():
+                        completed_required_sections_count = SectionProgress.objects.filter(
+                            course_progress=course_progress, section__in=required_sections, completed=True).count()
+                        if completed_required_sections_count >= required_sections.count():
+                            course_completed = True
+                    else:
+                        all_sections_count = Section.objects.filter(course=course).count()
+                        completed_sections_count = SectionProgress.objects.filter(
+                            course_progress=course_progress, completed=True).count()
+                        if all_sections_count > 0 and completed_sections_count >= all_sections_count:
+                            course_completed = True
+
+                # If the course is now complete, finalize everything.
+                if course_completed:
+                    course_progress.completed = True
+                    course_progress.progress_percentage = 100
+                    # Only update timestamp and show message once
+                    if not enrollment.completed_at:
+                        enrollment.completed_at = timezone.now()
+                        enrollment.save()
+                        messages.success(request, f"Congratulations! You have completed the course '{course.title}'!")
+                else:
+                    # If not complete, just recalculate the percentage
+                    all_required_topics = Topic.objects.filter(section__course=course, is_required=True)
+                    if all_required_topics.exists():
+                        total_count = all_required_topics.count()
+                        completed_count = TopicProgress.objects.filter(section_progress__course_progress=course_progress, topic__in=all_required_topics, completed=True).count()
+                    else:
+                        total_count = Topic.objects.filter(section__course=course).count()
+                        completed_count = TopicProgress.objects.filter(section_progress__course_progress=course_progress, completed=True).count()
+                    course_progress.progress_percentage = (completed_count / total_count) * 100 if total_count > 0 else 100
+                
+                # Save the final, correct state of the course progress
+                course_progress.save()
+
+                # --- END OF THE CRITICAL FIX ---
+
             except (Enrollment.DoesNotExist, CourseProgress.DoesNotExist, 
                    SectionProgress.DoesNotExist, TopicProgress.DoesNotExist):
-                # Handle cases where progress tracking records are missing
                 messages.warning(request, "Quiz passed, but topic progress could not be updated.")
     
-    # Calculate remaining attempts
+    # This part remains the same
     total_attempts = quiz.attempts_allowed
     used_attempts = QuizAttempt.objects.filter(user=request.user, quiz=quiz).count()
     remaining_attempts = max(0, total_attempts - used_attempts)

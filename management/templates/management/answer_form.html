@@ -1,0 +1,17 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Edit Answer{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Edit Answer</h1>
+        <a href="{% url 'management:manage_question' pk=answer.question.pk %}" class="btn btn-secondary">Back to Question</a>
+    </div>
+
+    <hr>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Update Answer</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,18 @@
+
+
+{% extends 'management/base.html' %}
+
+{% block title %}{% if form.instance.pk %}Edit Topic{% else %}Create Topic{% endif %}{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>{% if form.instance.pk %}Edit Topic{% else %}Create Topic{% endif %} in {{ section.title }}</h1>
+        <a href="{% url 'management:manage_section' pk=section.pk %}" class="btn btn-secondary">Back to section</a>
+    </div>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Save Topic</button>
+    </form>
+{% endblock %}

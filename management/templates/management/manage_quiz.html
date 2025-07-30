@@ -1,0 +1,60 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Manage Quiz: {{ quiz.name }}{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Manage Quiz for Topic: {{ topic.title }}</h1>
+        <!-- THIS IS THE FIX: The back button now goes to the section -->
+        <a href="{% url 'management:manage_section' pk=topic.section.pk %}" class="btn btn-secondary">Back to Section</a>
+    </div>
+
+    <hr>
+    <h3>Quiz Settings</h3>
+    <form method="post">
+        {% csrf_token %}
+        {{ quiz_form.as_p }}
+        <!-- THIS IS THE FIX: Button text is now dynamic -->
+        <button type="submit" name="update_quiz" class="btn btn-primary">
+            {% if quiz.pk %}Update Settings{% else %}Save Settings{% endif %}
+        </button>
+    </form>
+
+    <hr style="margin-top: 30px;">
+
+    <h3>Manage Questions ({{ questions.count }})</h3>
+    
+    <!-- Form to add a new question -->
+    <form method="post" style="margin-bottom: 20px;">
+        {% csrf_token %}
+        <fieldset>
+            <legend>Add New Question</legend>
+            {{ question_form.as_p }}
+            <button type="submit" name="add_question" class="btn btn-primary">Add Question</button>
+        </fieldset>
+    </form>
+
+    <!-- Table of existing questions -->
+    <table>
+        <thead>
+            <tr>
+                <th>Question Text</th>
+                <th>Answers</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for question in questions %}
+            <tr>
+                <td>{{ question.text|truncatechars:80 }}</td>
+                <td>{{ question.answers.count }}</td>
+                <td class="actions">
+                    <!-- THIS IS THE FIX: Link to the new question management page -->
+                    <a href="{% url 'management:manage_question' pk=question.pk %}">Manage</a>
+                    <a href="{% url 'management:question_delete' pk=question.pk %}" style="color: red;">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

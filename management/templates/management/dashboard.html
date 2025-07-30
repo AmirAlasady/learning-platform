@@ -1,0 +1,17 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Admin Dashboard</h1>
+    </div>
+    <p>Welcome, <strong>{{ request.user.username }}</strong>! Use the sidebar to manage your platform's content.</p>
+    
+    <h3>Platform Statistics</h3>
+    <ul>
+        <li>Total Courses: <strong>{{ course_count }}</strong></li>
+        <!-- You can add more statistics here as needed -->
+        <!-- e.g., Total Users, Total Enrollments -->
+    </ul>
+{% endblock %}

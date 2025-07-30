@@ -15,7 +15,10 @@
             <div>
                 <span class="font-medium text-indigo-800">Question {{ progress.current_index|add:1 }} of {{ progress.total }}</span>
                 <div class="mt-1 bg-white rounded-full h-2.5 w-64">
-                    <div class="bg-indigo-600 h-2.5 rounded-full" style="width: {{ progress.current_index|add:1|divisibleby:progress.total|floatformat:2 }}%;"></div>
+                    <!-- START OF THE FIX for the progress bar -->
+                    <!-- Replaced the invalid 'div' filter with the correct 'widthratio' template tag -->
+                    <div class="bg-indigo-600 h-2.5 rounded-full" style="width: {% widthratio progress.current_index|add:1 progress.total 100 %}%"></div>
+                    <!-- END OF THE FIX for the progress bar -->
                 </div>
             </div>
             
@@ -78,17 +81,10 @@
                     </button>
                     
                     {% if progress.is_last %}
-                        {% if progress.answered_all %}
                         <button type="submit" name="action" value="complete" 
                                 class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                             Submit Quiz
                         </button>
-                        {% else %}
-                        <button type="submit" name="action" value="next" 
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            Next
-                        </button>
-                        {% endif %}
                     {% else %}
                     <button type="submit" name="action" value="next" 
                             class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
@@ -115,34 +111,16 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Auto-submit form when an answer is selected (if configured)
-        const answerInputs = document.querySelectorAll('input[name="answer"]');
-        const autoSubmit = false; // Set to true if you want auto-submit
-        
-        if (autoSubmit) {
-            answerInputs.forEach(input => {
-                input.addEventListener('change', function() {
-                    document.getElementById('quiz-form').submit();
-                });
-            });
-        }
-        
         // Timer functionality
         const timerElement = document.getElementById('timer');
         if (timerElement) {
-            const remainingSeconds = parseInt(timerElement.dataset.remaining);
+            let timeLeft = parseInt(timerElement.dataset.remaining);
             
             function updateTimer() {
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                
-                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
+                    timerElement.textContent = '00:00';
                     alert('Time is up! Your quiz will be submitted automatically.');
-                    
-                    // Submit the form with action=complete
                     const form = document.getElementById('quiz-form');
                     const actionInput = document.createElement('input');
                     actionInput.type = 'hidden';
@@ -150,14 +128,17 @@
                     actionInput.value = 'complete';
                     form.appendChild(actionInput);
                     form.submit();
+                    return;
                 }
                 
-                timeLeft -= 1;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                timeLeft--;
             }
             
-            let timeLeft = remainingSeconds;
-            updateTimer();
             const timerInterval = setInterval(updateTimer, 1000);
+            updateTimer(); // Initial call
         }
     });
 </script>

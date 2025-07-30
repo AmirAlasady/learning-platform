@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Management - {% block title %}Dashboard{% endblock %}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            background-color: #f8f9fa;
+            color: #343a40;
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 240px;
+            background-color: #343a40;
+            color: #fff;
+            padding: 20px;
+            position: fixed;
+            height: 100%;
+        }
+        .sidebar h2 {
+            margin: 0 0 20px 0;
+            color: #fff;
+            text-align: center;
+        }
+        .sidebar a {
+            display: block;
+            color: #adb5bd;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .sidebar a:hover, .sidebar a.active {
+            background-color: #495057;
+            color: #fff;
+        }
+        .main-content {
+            margin-left: 240px;
+            flex-grow: 1;
+            padding: 30px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .messages {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+        }
+        .messages li {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .messages .success { background-color: #d4edda; color: #155724; }
+        .messages .error { background-color: #f8d7da; color: #721c24; }
+        .messages .info { background-color: #cce5ff; color: #004085; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #dee2e6; text-align: left; }
+        th { background-color: #e9ecef; }
+        .actions a { margin-right: 10px; text-decoration: none; }
+        .btn {
+            display: inline-block;
+            padding: 10px 15px;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 4px;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        form p { margin-bottom: 15px; }
+        form label { display: block; margin-bottom: 5px; font-weight: bold; }
+        form input, form select, form textarea {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Management</h2>
+        <a href="{% url 'management:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="{% url 'management:course_list' %}" class="{% if 'course' in request.resolver_match.url_name %}active{% endif %}">Courses</a>
+        <hr style="border-color: #495057;">
+        <a href="{% url 'index' %}">Back to Site</a>
+    </div>
+
+    <div class="main-content">
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li class="{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <div class="container">
+            {% block content %}
+            {% endblock %}
+        </div>
+    </div>
+
+</body>
+</html>

@@ -91,40 +91,21 @@
                     }
                 });
                 
-                // Apply video-specific protections
+                // --- START OF THE FIX ---
+                // The aggressive video-specific protections have been removed from this global script.
+                // This logic is now handled more carefully inside the 'study.html' template itself
+                // to ensure standard video controls like the seek bar are not broken.
+                /*
                 const videoElements = document.querySelectorAll('video');
                 videoElements.forEach(function(video) {
                     // Disable download option
                     video.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
                     video.disablePictureInPicture = true;
-                    
-                    // Set the video DRM-related properties
-                    video.addEventListener('loadedmetadata', function() {
-                        // Try to prevent screen capture in some browsers
-                        try {
-                            if ('mediaSession' in navigator) {
-                                navigator.mediaSession.metadata = new MediaMetadata({
-                                    title: 'Protected Content',
-                                    artist: 'Learning Platform',
-                                });
-                            }
-                        } catch (e) {
-                            console.log('Media session API not supported');
-                        }
-                    });
-                    
-                    // Disable drag and drop
-                    video.addEventListener('dragstart', function(e) {
-                        e.preventDefault();
-                    });
-                    
-                    // Handle if someone tries to enter Picture-in-Picture mode
-                    video.addEventListener('enterpictureinpicture', function(e) {
-                        video.exitPictureInPicture().catch(error => {
-                            console.error(error);
-                        });
-                    });
+                    video.addEventListener('dragstart', function(e) { e.preventDefault(); });
+                    video.addEventListener('enterpictureinpicture', function(e) { video.exitPictureInPicture().catch(console.error); });
                 });
+                */
+                // --- END OF THE FIX ---
                 
                 // Disable selecting text in protected areas
                 const protectedTextElements = document.querySelectorAll('.article-content, .topic-content');
@@ -217,7 +198,7 @@
                 </div>
             </div>
             <div class="mt-8 pt-8 border-t border-gray-700 text-center text-gray-300">
-                <p>&copy; {% now "Y" %} LearnHub. All rights reserved.</p>
+                <p>© {% now "Y" %} LearnHub. All rights reserved.</p>
             </div>
         </div>
     </footer>

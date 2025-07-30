@@ -1,0 +1,51 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Manage: {{ course.title }}{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Manage Course: {{ course.title }}</h1>
+        <a href="{% url 'management:course_list' %}" class="btn btn-secondary">Back to All Courses</a>
+    </div>
+
+    <hr>
+    <h3>Edit Course Details</h3>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Update Course</button>
+    </form>
+    
+    <hr style="margin-top: 30px;">
+
+    <div class="header">
+        <h3>Manage Sections ({{ sections.count }})</h3>
+        <a href="{% url 'management:section_create' course_pk=course.pk %}" class="btn btn-primary">Add New Section</a>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Section Title</th>
+                <th>Topics</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for section in sections %}
+            <tr>
+                <td>{{ section.title }}</td>
+                <td>{{ section.topics.count }}</td>
+                <td class="actions">
+                    <a href="{% url 'management:manage_section' pk=section.pk %}">Manage</a>
+                    <a href="{% url 'management:section_delete' pk=section.pk %}" style="color:red;">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">This course has no sections. Add one to begin building content.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

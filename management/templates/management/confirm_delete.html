@@ -1,0 +1,29 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Confirm Deletion{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Delete {{ type }}: {% if type == 'Question' %}{{ object.text|truncatechars:40 }}{% else %}{{ object.title }}{% endif %}</h1>
+    </div>
+    <p>Are you sure you want to delete this {{ type }}? This action cannot be undone.</p>
+    {% if type == 'Course' %}
+    <p><strong>Warning:</strong> Deleting a course will also delete all of its sections, topics, and quizzes.</p>
+    {% elif type == 'Section' %}
+    <p><strong>Warning:</strong> Deleting a section will also delete all of its topics and quizzes.</p>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        {% if parent_url_name and parent_pk %}
+            {% if parent_is_topic %}
+                <a href="{% url 'management:'|add:parent_url_name topic_pk=parent_pk %}" class="btn btn-secondary">Cancel</a>
+            {% else %}
+                <a href="{% url 'management:'|add:parent_url_name pk=parent_pk %}" class="btn btn-secondary">Cancel</a>
+            {% endif %}
+        {% else %}
+            <a href="{% url 'management:course_list' %}" class="btn btn-secondary">Cancel</a>
+        {% endif %}
+    </form>
+{% endblock %}

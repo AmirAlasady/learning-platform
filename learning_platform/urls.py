@@ -18,6 +18,9 @@ urlpatterns = [
     
     # Replace the standard static media URL with our protected view
     re_path(r'^media/(?P<path>.*)$', protected_media_view, name='protected_media'),
+
+    # management app
+    path('management/', include('management.urls', namespace='management')),
 ]
 
 # Comment out this line to prevent direct media access

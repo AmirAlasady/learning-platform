@@ -19,7 +19,7 @@ urlpatterns = [
     path('quiz/attempt/<int:attempt_id>/', take_quiz, name='take_quiz'),
     path('quiz/attempt/<int:attempt_id>/<int:question_index>/', take_quiz, name='take_quiz'),
     path('quiz/results/<int:attempt_id>/', quiz_results, name='quiz_results'),
-    path('topic/<int:topic_id>/', topic_view, name='topic_view'),
+    #path('topic/<int:topic_id>/', topic_view, name='topic_view'),
     path('clear-quiz-redirect/', clear_quiz_redirect, name='clear_quiz_redirect'),
     # rating and review
     path('course/<int:course_id>/review/', submit_review, name='submit_review'),

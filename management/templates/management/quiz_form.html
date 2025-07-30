@@ -1,0 +1,16 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Manage Quiz{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Manage Quiz for Topic: {{ topic.title }}</h1>
+        <a href="{% url 'management:quiz_create_edit' topic_pk=quiz.topic.pk %}" class="btn btn-secondary">Back to Quiz Settings</a>
+    </div>
+    <p>Use this form to create or update the settings for this quiz. After saving, you can manage its questions.</p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Save and Manage Questions</button>
+    </form>
+{% endblock %}

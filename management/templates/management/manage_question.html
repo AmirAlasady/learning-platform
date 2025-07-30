@@ -1,0 +1,68 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Manage Question{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Manage Question & Answers</h1>
+        <a href="{% url 'management:manage_quiz' topic_pk=quiz_topic_pk %}" class="btn btn-secondary">Back to Quiz</a>
+    </div>
+
+    <hr>
+    <h3>Edit Question</h3>
+    <form method="post">
+        {% csrf_token %}
+        {{ question_form.as_p }}
+        <button type="submit" name="update_question" class="btn btn-primary">Update Question Text</button>
+    </form>
+
+    <hr style="margin-top: 30px;">
+
+    <h3>Manage Answer Choices ({{ answers.count }})</h3>
+
+    <!-- Form to add a new answer -->
+    <form action="{% url 'management:answer_create' question_pk=question.pk %}" method="post" style="margin-bottom: 20px;">
+        {% csrf_token %}
+        <fieldset>
+            <legend>Add New Answer</legend>
+            {{ answer_form.as_p }}
+            <button type="submit" class="btn btn-primary">Add Answer Choice</button>
+        </fieldset>
+    </form>
+
+    <!-- Table of existing answers -->
+    <table>
+        <thead>
+            <tr>
+                <th>Answer Text</th>
+                <th>Is Correct?</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for answer in answers %}
+            <tr>
+                <td>{{ answer.text }}</td>
+                <td>
+                    {% if answer.is_correct %}
+                        <strong style="color: green;">Yes</strong>
+                    {% else %}
+                        No
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a href="{% url 'management:answer_edit' pk=answer.pk %}">Edit</a>
+                    <form action="{% url 'management:answer_delete' pk=answer.pk %}" method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" style="color:red; border:none; background:none; cursor:pointer; padding:0; font-size: 1em;">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">This question has no answer choices yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

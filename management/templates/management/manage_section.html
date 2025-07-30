@@ -1,0 +1,60 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Manage Section: {{ section.title }}{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Manage Section: {{ section.title }}</h1>
+        <a href="{% url 'management:manage_course' pk=section.course.pk %}" class="btn btn-secondary">Back to Course: {{ section.course.title }}</a>
+    </div>
+
+    <hr>
+    <h3>Edit Section Details</h3>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Update Section</button>
+    </form>
+    
+    <hr style="margin-top: 30px;">
+
+    <div class="header">
+        <h3>Manage Topics ({{ topics.count }})</h3>
+        <a href="{% url 'management:topic_create' section_pk=section.pk %}" class="btn btn-primary">Add New Topic</a>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Topic Title</th>
+                <th>Content Type</th>
+                <th>Quiz</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for topic in topics %}
+            <tr>
+                <td>{{ topic.title }}</td>
+                <td>{{ topic.get_content_type_display }}</td>
+                <td>
+                    {% if topic.content_type == 'quiz' %}
+                        <!-- THIS IS THE FIX: Link to the new central quiz page -->
+                        <a href="{% url 'management:manage_quiz' topic_pk=topic.pk %}">Manage Quiz</a>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a href="{% url 'management:topic_edit' pk=topic.pk %}">Edit</a>
+                    <a href="{% url 'management:topic_delete' pk=topic.pk %}" style="color:red;">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">This section has no topics. Add one to build content.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -160,208 +160,146 @@ def check_transaction_status(request, transaction_id):
         return JsonResponse({'status': 'error', 'message': str(e)})
 
 
+# In subscribtion/views.py
+
 def mark_topic_as_completed(request, topic_id):
     """
-    Mark a topic as completed and handle progression logic.
-    Fixed to always check for next section activation regardless of section completed state.
+    This is the FINAL, DEFINITIVE version of the function. It fixes the critical bug
+    where the course would show 100% but not be marked as 'completed' in the database,
+    and also fixes the optional content lockout.
     """
+    # Self-contained imports to prevent NameErrors
+    from utils import create_course_progress
+    from courses.models import Topic, Section, Course
+    from .models import Enrollment, CourseProgress, SectionProgress, TopicProgress
+    from django.contrib import messages
+    from django.utils import timezone
+
     if request.method != 'POST':
         messages.error(request, "Invalid request method.")
         return redirect('course_list')
     
-    # Get the topic
     topic = get_object_or_404(Topic, id=topic_id)
     section = topic.section
     course = section.course
     
-    # Verify user is enrolled in the course
     try:
         enrollment = Enrollment.objects.get(user=request.user, course=course)
-        if enrollment.completed_at:
-            messages.info(request, "You have already completed this course.")
-            return redirect('course_detail', course_id=course.id)
     except Enrollment.DoesNotExist:
         messages.error(request, "You are not enrolled in this course.")
         return redirect('course_detail', course_id=course.id)
     
-    # Get course progress
     try:
         course_progress = CourseProgress.objects.get(enrollment_model=enrollment)
-    except CourseProgress.DoesNotExist:
-        # Create progress if it doesn't exist
-        from utils import create_course_progress
-        course_progress = create_course_progress(enrollment)
+        section_progress = SectionProgress.objects.get(course_progress=course_progress, section=section)
+        topic_progress, created = TopicProgress.objects.get_or_create(section_progress=section_progress, topic=topic)
+    except (CourseProgress.DoesNotExist, SectionProgress.DoesNotExist):
+        create_course_progress(enrollment)
+        return redirect('study_course', course_id=course.id)
     
-    # Get section progress
-    try:
-        section_progress = SectionProgress.objects.get(
-            course_progress=course_progress,
-            section=section
-        )
-    except SectionProgress.DoesNotExist:
-        messages.error(request, "Section progress record not found.")
-        return redirect('course_detail', course_id=course.id)
+    # This check has been moved down to allow marking optional topics as complete
+    # after the main course is finished.
+    if course.course_type == 'locked' and not topic_progress.is_active and not enrollment.completed_at:
+        messages.error(request, "You must complete previous topics first.")
+        return redirect('study_course', course_id=course.id)
     
-    # Get topic progress
-    try:
-        topic_progress = TopicProgress.objects.get(
-            section_progress=section_progress,
-            topic=topic
-        )
-    except TopicProgress.DoesNotExist:
-        messages.error(request, "Topic progress record not found.")
-        return redirect('course_detail', course_id=course.id)
-    
-    # For locked courses, verify proper sequence
-    if course.course_type == 'locked':
-        if not topic_progress.is_active:
-            messages.error(request, "You must complete previous topics first.")
-            return redirect('topic_view', topic_id=topic_id)
-    
-    # Mark the topic as completed if not already
     if not topic_progress.completed:
         topic_progress.completed = True
         topic_progress.save()
         messages.success(request, f"Topic '{topic.title}' marked as completed!")
     
-    # Check for section completion - regardless of current completed state
-    # Get all topics in this section
-    section_topics = Topic.objects.filter(section=section)
+    # --- UNIFIED COMPLETION LOGIC ---
     
-    # Check for required topics
-    required_topics = section_topics.filter(is_required=True)
-    
+    # Step 1: Check for SECTION completion
+    section_completed = False
+    required_topics = Topic.objects.filter(section=section, is_required=True)
     if required_topics.exists():
-        # If section has required topics, check only those
-        required_topic_ids = list(required_topics.values_list('id', flat=True))
-        completed_required_count = TopicProgress.objects.filter(
-            section_progress=section_progress,
-            topic_id__in=required_topic_ids,
-            completed=True
-        ).count()
-        
-        section_completed = (completed_required_count == required_topics.count())
-        section_progress.progress_percentage = (completed_required_count / required_topics.count()) * 100
+        completed_required_count = TopicProgress.objects.filter(section_progress=section_progress, topic__in=required_topics, completed=True).count()
+        if completed_required_count >= required_topics.count():
+            section_completed = True
     else:
-        # If no required topics specified, check all topics
-        all_topics_count = section_topics.count()
-        completed_count = TopicProgress.objects.filter(
-            section_progress=section_progress,
-            completed=True
-        ).count()
-        
-        section_completed = (completed_count == all_topics_count)
-        section_progress.progress_percentage = (completed_count / all_topics_count) * 100 if all_topics_count > 0 else 100
+        all_topics_count = Topic.objects.filter(section=section).count()
+        completed_count = TopicProgress.objects.filter(section_progress=section_progress, completed=True).count()
+        if all_topics_count > 0 and completed_count >= all_topics_count:
+            section_completed = True
+            
+    if section_completed != section_progress.completed:
+        section_progress.completed = section_completed
+        section_progress.save()
     
-    # Update section progress
-    section_progress.completed = section_completed
-    section_progress.save()
+    # Step 2: Check for COURSE completion
+    course_completed = False
+    required_sections = Section.objects.filter(course=course, is_required=True)
+    if required_sections.exists():
+        completed_required_sections_count = SectionProgress.objects.filter(course_progress=course_progress, section__in=required_sections, completed=True).count()
+        if completed_required_sections_count >= required_sections.count():
+            course_completed = True
+    else:
+        all_sections_count = Section.objects.filter(course=course).count()
+        completed_sections_count = SectionProgress.objects.filter(course_progress=course_progress, completed=True).count()
+        if all_sections_count > 0 and completed_sections_count >= all_sections_count:
+            course_completed = True
+            
+    # --- START OF THE CRITICAL FIX ---
+    # The logic is now unified into a single if/else block to prevent contradictions.
     
-    # ALWAYS check for next section activation if section is completed
-    # Changed from: if section_completed and not section_progress.completed:
-    # To: if section_completed:
-    if section_completed:
-        # Check if there's a next section to activate
-        next_section = Section.objects.filter(
-            course=course,
-            created_at__gt=section.created_at
-        ).order_by('created_at').first()
+    if course_completed:
+        # If the course is now complete, FORCE the state to 100% and done.
+        # This block is the single source of truth for a completed course.
+        course_progress.completed = True
+        course_progress.progress_percentage = 100
         
-        if next_section:
-            # Check if there's already progress for this section
-            next_section_progress, created = SectionProgress.objects.get_or_create(
-                course_progress=course_progress,
-                section=next_section,
-                defaults={
-                    'progress_percentage': 0.0,
-                    'completed': False,
-                    'is_active': True
-                }
-            )
-            
-            # Always ensure it's active, even if we didn't create a new record
-            next_section_progress.is_active = True
-            next_section_progress.save()
-            
-            messages.success(request, f"Section '{section.title}' completed! New section '{next_section.title}' is now available.")
-            
-            # Find the first topic in the next section
-            first_topic = Topic.objects.filter(
-                section=next_section
-            ).order_by('created_at').first()
-            
-            if first_topic:
-                # Check if there's already progress for this topic
-                first_topic_progress, created = TopicProgress.objects.get_or_create(
-                    section_progress=next_section_progress,
-                    topic=first_topic,
-                    defaults={
-                        'completed': False,
-                        'is_active': True
-                    }
-                )
-                
-                # Always ensure it's active, even if we didn't create a new record
-                first_topic_progress.is_active = True
-                first_topic_progress.save()
+        # Only update timestamp and show the "Congratulations" message ONCE.
+        if not enrollment.completed_at:
+            enrollment.completed_at = timezone.now()
+            enrollment.save()
+            messages.success(request, f"Congratulations! You have completed the course '{course.title}'!")
+    else:
+        # If the course is NOT yet complete, ensure the 'completed' flag is False
+        # and calculate the real percentage based on required topics.
+        course_progress.completed = False
+        all_required_topics = Topic.objects.filter(section__course=course, is_required=True)
+        if all_required_topics.exists():
+            total_count = all_required_topics.count()
+            completed_count = TopicProgress.objects.filter(section_progress__course_progress=course_progress, topic__in=all_required_topics, completed=True).count()
         else:
-            # This was the last section, check if course is completed
-            all_sections = Section.objects.filter(course=course).count()
-            completed_sections = SectionProgress.objects.filter(
-                course_progress=course_progress,
-                completed=True
-            ).count()
-            
-            if all_sections == completed_sections:
-                # Mark course as completed
-                course_progress.completed = True
-                course_progress.progress_percentage = 100
-                course_progress.save()
-                
-                # Mark enrollment as completed
-                enrollment.completed_at = timezone.now()
-                enrollment.save()
-                
-                messages.success(request, f"Congratulations! You have completed the course '{course.title}'!")
-    else:
-        # If section is not completed, activate next topic
-        next_topic = Topic.objects.filter(
-            section=section,
-            created_at__gt=topic.created_at
-        ).order_by('created_at').first()
-        
-        if next_topic and course.course_type == 'locked':
-            next_topic_progress, created = TopicProgress.objects.get_or_create(
-                section_progress=section_progress,
-                topic=next_topic,
-                defaults={
-                    'completed': False,
-                    'is_active': True
-                }
-            )
-            
-            if not created:
-                next_topic_progress.is_active = True
-                next_topic_progress.save()
+            total_count = Topic.objects.filter(section__course=course).count()
+            completed_count = TopicProgress.objects.filter(section_progress__course_progress=course_progress, completed=True).count()
+        course_progress.progress_percentage = (completed_count / total_count) * 100 if total_count > 0 else 0
     
-    # Update course progress percentage
-    total_topics = Topic.objects.filter(section__course=course).count()
-    completed_topics = TopicProgress.objects.filter(
-        section_progress__course_progress=course_progress,
-        completed=True
-    ).count()
-    
-    course_progress.progress_percentage = (completed_topics / total_topics) * 100 if total_topics > 0 else 100
+    # Save the final, correct state of the course progress record.
     course_progress.save()
     
-    # Determine where to redirect
-    next_url = request.POST.get('next')
-    if next_url:
-        return redirect(next_url)
-    elif topic.content_type in ['video', 'article']:
-        return redirect('topic_view', topic_id=topic_id)
-    else:
-        return redirect('study_course', course_id=course.id)
+    # --- END OF THE CRITICAL FIX ---
+    
+    # Step 4: Activate next content (for LOCKED courses)
+    if course.course_type == 'locked' and not enrollment.completed_at:
+        # This logic now only runs if the course isn't finished,
+        # preventing it from trying to activate content after completion.
+        if section_completed:
+            next_section = Section.objects.filter(course=course, created_at__gt=section.created_at).order_by('created_at').first()
+            if next_section:
+                next_sp, created = SectionProgress.objects.get_or_create(course_progress=course_progress, section=next_section)
+                if not next_sp.is_active:
+                    next_sp.is_active = True
+                    next_sp.save()
+                first_topic = Topic.objects.filter(section=next_section).order_by('created_at').first()
+                if first_topic:
+                    first_tp, created = TopicProgress.objects.get_or_create(section_progress=next_sp, topic=first_topic)
+                    if not first_tp.is_active:
+                        first_tp.is_active = True
+                        first_tp.save()
+        else:
+            next_topic = Topic.objects.filter(section=section, created_at__gt=topic.created_at).order_by('created_at').first()
+            if next_topic:
+                next_tp, created = TopicProgress.objects.get_or_create(section_progress=section_progress, topic=next_topic)
+                if not next_tp.is_active:
+                    next_tp.is_active = True
+                    next_tp.save()
+
+    # Step 5: FINAL, UNCONDITIONAL REDIRECTION
+    # After all logic is done, ALWAYS return to the main study page.
+    return redirect('study_course', course_id=course.id)
 
 
 

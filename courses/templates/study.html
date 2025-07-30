@@ -8,101 +8,46 @@
     <!-- Mobile sidebar toggle -->
     <div class="md:hidden">
         <button id="sidebar-toggle" type="button" class="fixed z-20 bottom-4 right-4 p-2 rounded-full bg-indigo-600 text-white shadow-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
     </div>
 
     <!-- Course navigation sidebar -->
     <div id="sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:translate-x-0 md:relative md:flex md:flex-col w-64 md:w-80 bg-white border-r border-gray-200 z-10 transition-transform duration-300 ease-in-out">
-        <!-- Course info header -->
         <div class="p-4 border-b border-gray-200">
             <a href="{% url 'course_detail' course.id %}" class="text-sm text-indigo-600 hover:text-indigo-800 mb-2 inline-flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                 Back to course
             </a>
             <h1 class="font-bold text-lg text-gray-900 truncate">{{ course.title }}</h1>
-            
-            <!-- Progress bar -->
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-1">
                     <span class="text-xs font-medium text-gray-500">Your progress</span>
-                    <span id="progress-percentage" class="text-xs font-medium text-gray-500">{{ course_progress.progress_percentage|floatformat:0 }}%</span>
+                    <span class="text-xs font-medium text-gray-500">{{ course_progress.progress_percentage|floatformat:0 }}%</span>
                 </div>
                 <div class="h-2 bg-gray-200 rounded-full">
-                    <div id="progress-bar" class="h-2 bg-indigo-600 rounded-full" style="width: {{ course_progress.progress_percentage }}%;"></div>
+                    <div class="h-2 bg-indigo-600 rounded-full" style="width: {{ course_progress.progress_percentage }}%;"></div>
                 </div>
             </div>
         </div>
         
-        <!-- Course content navigation -->
         <div class="flex-1 overflow-y-auto pb-4">
-            <nav class="pt-4" id="course-nav">
+            <nav class="pt-4">
                 {% for section in sections %}
                     {% with section_data=section_progress|get_item:section.id %}
-                    <div class="section-container px-4 mb-2" data-section-id="{{ section.id }}">
+                    <div class="px-4 mb-2">
                         <div class="section-header flex items-center justify-between py-2 cursor-pointer">
-                            <div class="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="section-icon h-4 w-4 transform transition-transform {% if active_topic and active_topic.section.id == section.id %}rotate-90{% endif %}" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                </svg>
-                                <span class="ml-2 font-medium text-gray-700 truncate {% if section_data.completed %}line-through text-gray-400{% endif %}">
-                                    {{ section.title }}
-                                </span>
-                            </div>
-                            <div class="flex items-center section-status">
-                                {% if section_data.completed %}
-                                    <span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">Completed</span>
-                                {% elif section_data.is_active %}
-                                    <span class="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-800">In Progress</span>
-                                {% else %}
-                                    <span class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-800">Locked</span>
-                                {% endif %}
-                            </div>
+                            <h3 class="font-medium text-gray-700 truncate">{{ section.title }}</h3>
                         </div>
-                        
-                        <div class="section-content ml-6 mt-1 space-y-1 {% if not section_data.is_active and active_topic.section.id != section.id %}hidden{% endif %}">
+                        <div class="section-content ml-6 mt-1 space-y-1">
                             {% for topic in section.topics.all %}
                                 {% with topic_data=topic_progress|get_item:topic.id %}
-                                <div class="topic-item py-1 px-2 rounded {% if active_topic and active_topic.id == topic.id %}bg-indigo-50 border-l-4 border-indigo-500{% endif %}" data-topic-id="{{ topic.id }}">
-                                    <a href="{% if topic_data.is_active or course.course_type == 'unlocked' %}{% url 'study_course' course.id %}?topic_id={{ topic.id }}{% else %}#{% endif %}" 
-                                       class="topic-link flex items-center {% if not topic_data.is_active and course.course_type != 'unlocked' %}cursor-not-allowed opacity-50{% endif %}"
-                                       data-topic-id="{{ topic.id }}" 
-                                       data-is-active="{% if topic_data.is_active or course.course_type == 'unlocked' %}true{% else %}false{% endif %}">
-                                        
-                                        <!-- Topic type icon -->
-                                        {% if topic.content_type == 'video' %}
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        {% elif topic.content_type == 'article' %}
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                        {% elif topic.content_type == 'quiz' %}
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        {% endif %}
-                                        
-                                        <span class="ml-2 text-sm text-gray-700 truncate topic-title {% if topic_data.completed %}line-through text-gray-400{% endif %}">
-                                            {{ topic.title }}
-                                        </span>
-                                        
-                                        <!-- Completion status -->
-                                        <span class="topic-status ml-auto">
-                                            {% if topic_data.completed %}
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                                </svg>
-                                            {% endif %}
-                                        </span>
-                                    </a>
-                                </div>
+                                <a href="{% if topic_data.is_active or course.course_type == 'unlocked' %}{% url 'study_course' course.id %}?topic_id={{ topic.id }}{% else %}#{% endif %}" class="topic-link flex items-center p-2 rounded {% if active_topic.id == topic.id %}bg-indigo-50{% endif %} {% if not topic_data.is_active and course.course_type != 'unlocked' %}cursor-not-allowed opacity-50{% endif %}">
+                                    <span class="ml-2 text-sm text-gray-700 truncate">{{ topic.title }}</span>
+                                    {% if topic_data.completed %}
+                                    <svg class="h-4 w-4 text-green-500 ml-auto" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                    {% endif %}
+                                </a>
                                 {% endwith %}
                             {% endfor %}
                         </div>
@@ -113,242 +58,72 @@
         </div>
     </div>
     
-    <!-- Content area -->
     <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- Content header -->
-        <div class="border-b border-gray-200 bg-white">
-            <div class="px-4 py-3 flex justify-between items-center">
-                <h2 id="topic-title" class="text-xl font-semibold text-gray-800">
-                    {% if active_topic %}{{ active_topic.title }}{% else %}Course Overview{% endif %}
-                </h2>
-                
-                <!-- Navigation controls when a topic is active -->
-                <div id="topic-navigation" class="flex space-x-2 {% if not active_topic %}hidden{% endif %}">
-                    <!-- Previous topic button -->
-                    {% if prev_topic %}
-                        <a href="{% url 'study_course' course.id %}?topic_id={{ prev_topic.id }}"
-                           class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition navigation-btn prev-btn"
-                           data-topic-id="{{ prev_topic.id }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                            </svg>
-                            Prev
-                        </a>
-                    {% else %}
-                        <button type="button" 
-                                class="px-3 py-1 text-sm border border-gray-300 rounded opacity-50 cursor-not-allowed navigation-btn prev-btn-disabled"
-                                disabled>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                            </svg>
-                            Prev
-                        </button>
-                    {% endif %}
-                    
-                    <!-- Next topic button -->
-                    {% if next_topic %}
-                        <a href="{% url 'study_course' course.id %}?topic_id={{ next_topic.id }}"
-                           class="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 transition navigation-btn next-btn"
-                           data-topic-id="{{ next_topic.id }}">
-                            Next
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                        </a>
-                    {% else %}
-                        <button type="button" 
-                                class="px-3 py-1 text-sm bg-indigo-600 text-white rounded opacity-50 cursor-not-allowed navigation-btn next-btn-disabled"
-                                disabled>
-                            Next
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    {% endif %}
-                </div>
-            </div>
+        <div class="border-b border-gray-200 bg-white p-4">
+            <h2 class="text-xl font-semibold text-gray-800">{% if active_topic %}{{ active_topic.title }}{% else %}Course Overview{% endif %}</h2>
         </div>
         
-        <!-- Main content -->
         <div class="flex-1 overflow-y-auto bg-white p-4">
-            <div id="messages-container" class="mb-4">
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="p-3 mb-2 {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %} rounded">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            </div>
+            {% if messages %}{% for message in messages %}<div class="p-3 mb-2 {% if message.tags == 'success' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %} rounded">{{ message }}</div>{% endfor %}{% endif %}
             
-            <div id="topic-content">
-                {% if active_topic %}
-                    <div class="mb-4">
-                        <p id="topic-description" class="text-gray-600 mb-4">{{ active_topic.description }}</p>
-                        
-                        <!-- Topic content based on type -->
-                        {% if active_topic.content_type == 'video' %}
-                            <div class="aspect-w-16 aspect-h-9 mb-4">
-                                {% if active_topic.VIDEO_CINTETN_FILE %}
-                                    <video id="topic-video" 
-                                           controls 
-                                           class="w-full rounded-lg shadow-md" 
-                                           data-topic-id="{{ active_topic.id }}"
-                                           controlsList="nodownload"
-                                           oncontextmenu="return false;">
-                                        <source src="{{ active_topic.VIDEO_CINTETN_FILE.url }}" type="video/mp4">
-                                        Your browser does not support the video tag.
-                                    </video>
-                                    
-                                    <!-- Hidden form for video completion -->
-                                    <form id="video-completion-form" method="post" action="{% url 'mark_topic_completed' active_topic.id %}" style="display: none;">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="next" value="{% url 'study_course' course.id %}?topic_id={{ active_topic.id }}">
-                                    </form>
-                                    
-                                    <script>
-                                        document.addEventListener('DOMContentLoaded', function() {
-                                            const video = document.getElementById('topic-video');
-                                            const completionForm = document.getElementById('video-completion-form');
-                                            
-                                            // Variable to track if we've already submitted
-                                            {% with topic_data=topic_progress|get_item:active_topic.id %}
-                                            window.topicMarkedAsCompleted = {% if topic_data.completed %}true{% else %}false{% endif %};
-                                            {% endwith %}
-                                            
-                                            function markAsCompleted() {
-                                                if (!window.topicMarkedAsCompleted) {
-                                                    window.topicMarkedAsCompleted = true;
-                                                    completionForm.submit();
-                                                }
-                                            }
-                                            
-                                            if (video && completionForm) {
-                                                // When video ends, submit the completion form
-                                                video.addEventListener('ended', function() {
-                                                    console.log('Video ended, marking as completed');
-                                                    markAsCompleted();
-                                                });
-                                                
-                                                // Also check periodically near the end
-                                                video.addEventListener('timeupdate', function() {
-                                                    // If we're within 1 second of the end
-                                                    if (this.duration > 0 && 
-                                                        this.currentTime > 0 && 
-                                                        this.duration - this.currentTime < 1 &&
-                                                        !window.videoNearEndTriggered) {
-                                                        
-                                                        console.log('Video near end, marking as completed');
-                                                        window.videoNearEndTriggered = true;
-                                                        markAsCompleted();
-                                                    }
-                                                });
-                                            }
-                                        });
-                                    </script>
-                                    
-                                    {% with topic_data=topic_progress|get_item:active_topic.id %}
-                                        {% if not topic_data.completed %}
-                                        <div class="mt-4 text-center">
-                                            <button id="manual-video-complete-btn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700" 
-                                                    onclick="document.getElementById('video-completion-form').submit();">
-                                                Mark Video as Completed
-                                            </button>
-                                            <p class="mt-2 text-sm text-gray-500">
-                                                If the video doesn't automatically mark as completed, use this button.
-                                            </p>
-                                        </div>
-                                        {% endif %}
-                                    {% endwith %}
-                                {% else %}
-                                    <div class="bg-gray-100 p-4 rounded-lg text-center">
-                                        <p>Video content not available.</p>
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% elif active_topic.content_type == 'article' %}
-                            <div id="article-content" class="prose max-w-none mb-6">
-                                {{ active_topic.ARTICLE_CONTENT|safe }}
-                            </div>
-                            
-                            <!-- Mark as completed button for article -->
-                            {% with topic_data=topic_progress|get_item:active_topic.id %}
-                                <div id="topic-completion-controls">
-                                    {% if not topic_data.completed %}
-                                        <form method="post" action="{% url 'mark_topic_completed' active_topic.id %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="next" value="{% url 'study_course' course.id %}?topic_id={{ active_topic.id }}">
-                                            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                                Mark as Completed
-                                            </button>
-                                        </form>
-                                    {% else %}
-                                        <div class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md inline-block">
-                                            Completed ✓
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            {% endwith %}
-                        {% elif active_topic.content_type == 'quiz' %}
-                            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-6 mb-6">
-                                <h3 class="text-lg font-semibold mb-2">Quiz: {{ active_topic.title }}</h3>
-                                
-                                {% if has_quiz %}
-                                    <p class="mb-4">{{ quiz.description }}</p>
-                                    <ul class="list-disc list-inside mb-4 text-gray-600">
-                                        <li>Number of questions: {{ quiz.questions.count }}</li>
-                                        <li>Time limit: {% if quiz.duration_minutes %}{{ quiz.duration_minutes }} minutes{% else %}No time limit{% endif %}</li>
-                                        <li>Passing score: {{ quiz.passing_score }}%</li>
-                                        <li>Attempts allowed: {{ quiz.attempts_allowed }}</li>
-                                    </ul>
-                                    
-                                    <a href="{% url 'start_quiz' quiz.id %}?study_url={% url 'study_course' course.id %}%3Ftopic_id%3D{{ active_topic.id }}" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        Start Quiz
-                                    </a>
-                                {% else %}
-                                    <p>No quiz available for this topic.</p>
-                                {% endif %}
-                            </div>
+            {% if active_topic %}
+                <p class="text-gray-600 mb-4">{{ active_topic.description }}</p>
+                
+                {% if active_topic.content_type == 'video' %}
+                    <div class="aspect-w-16 aspect-h-9">
+                        {% if active_topic.VIDEO_CINTETN_FILE %}
+                            <video id="topic-video" controls class="w-full rounded-lg" controlsList="nodownload">
+                                <source src="{{ active_topic.VIDEO_CINTETN_FILE.url }}?token={{ video_token }}" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
                         {% endif %}
                     </div>
-                {% else %}
-                    <!-- Course overview if no topic is selected -->
-                    <div class="text-center py-12" id="course-overview">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-indigo-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Welcome to {{ course.title }}</h2>
-                        <p class="text-gray-600 mb-6">Select a topic from the menu to start learning.</p>
-                        
-                        <!-- Course stats -->
-                        <div class="max-w-lg mx-auto grid grid-cols-2 gap-4">
-                            <div class="bg-white p-4 rounded-lg shadow">
-                                <h3 class="font-semibold text-gray-700">Total progress</h3>
-                                <p class="text-2xl font-bold text-indigo-600">{{ course_progress.progress_percentage|floatformat:0 }}%</p>
+                {% elif active_topic.content_type == 'article' %}
+                    <div class="prose max-w-none">{{ active_topic.ARTICLE_CONTENT|safe }}</div>
+                
+                {% elif active_topic.content_type == 'quiz' %}
+                    <!-- START OF THE FIX for the quiz button -->
+                    {% with topic_data=topic_progress|get_item:active_topic.id %}
+                        {% if not topic_data.completed %}
+                            <!-- If the quiz topic is NOT complete, show the button -->
+                            {% if has_quiz %}
+                                <p class="mb-4">{{ quiz.description }}</p>
+                                <a href="{% url 'start_quiz' quiz.id %}?study_url={{ request.build_absolute_uri }}" class="px-4 py-2 bg-indigo-600 text-white rounded">Start Quiz</a>
+                            {% else %}
+                                <p>Quiz not available for this topic.</p>
+                            {% endif %}
+                        {% else %}
+                            <!-- If the quiz topic IS complete, show a completed message -->
+                            <div class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md inline-block">
+                                Quiz Completed ✓
                             </div>
-                            <div class="bg-white p-4 rounded-lg shadow">
-                                <h3 class="font-semibold text-gray-700">Topics</h3>
-                                <p class="text-2xl font-bold text-indigo-600">{{ topic_progress|length }}</p>
-                            </div>
-                        </div>
-                    </div>
+                        {% endif %}
+                    {% endwith %}
+                    <!-- END OF THE FIX for the quiz button -->
                 {% endif %}
-            </div>
-            {% if course_progress.completed or progress_percentage >= 100 %}
-                <div class="bg-green-50 border border-green-200 rounded-lg p-6 mt-6 text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 class="text-lg font-semibold text-green-800 mb-2">Congratulations! You've completed all course content.</h3>
-                    <p class="text-green-700 mb-4">You've successfully completed all the topics in this course. You can now get your certificate of completion.</p>
+
+                {% if active_topic.content_type != 'quiz' %}
+                    {% with topic_data=topic_progress|get_item:active_topic.id %}
+                        {% if not topic_data.completed %}
+                        <div class="mt-4">
+                            <form method="post" action="{% url 'mark_topic_completed' active_topic.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded">Mark as Completed</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    {% endwith %}
+                {% endif %}
+            {% else %}
+                <p>Select a topic to begin.</p>
+            {% endif %}
+
+            {% if course_progress.completed %}
+                <div class="mt-6 text-center">
+                    <h3 class="text-lg font-semibold">Congratulations! You've completed this course.</h3>
                     <form method="post" action="{% url 'generate_certificate' course.id %}">
                         {% csrf_token %}
-                        <button type="submit" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors certificate-download">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1M19 20a2 2 0 002-2V8a2 2 0 00-2-2h-5v10a2 2 0 002 2h3z" />
-                            </svg>
-                            Get Your Certificate
-                        </button>
+                        <button type="submit" class="px-6 py-3 bg-green-600 text-white rounded certificate-download">Get Your Certificate</button>
                     </form>
                 </div>
             {% endif %}
@@ -357,118 +132,12 @@
 </div>
 
 <script>
-// Navigation functionality for course topics
-document.addEventListener('DOMContentLoaded', function() {
-    // Sidebar toggle for mobile
+document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.getElementById('sidebar');
-    const sidebarToggle = document.getElementById('sidebar-toggle');
-    
-    if (sidebarToggle && sidebar) {
-        sidebarToggle.addEventListener('click', function() {
-            sidebar.classList.toggle('-translate-x-full');
-        });
+    const toggle = document.getElementById('sidebar-toggle');
+    if (sidebar && toggle) {
+        toggle.addEventListener('click', () => sidebar.classList.toggle('-translate-x-full'));
     }
-    
-    // Section expand/collapse functionality
-    const sectionHeaders = document.querySelectorAll('.section-header');
-    sectionHeaders.forEach(header => {
-        header.addEventListener('click', function() {
-            const sectionIcon = this.querySelector('.section-icon');
-            const sectionContent = this.parentNode.querySelector('.section-content');
-            
-            sectionContent.classList.toggle('hidden');
-            sectionIcon.classList.toggle('rotate-90');
-        });
-    });
-    
-    // Enhanced navigation button functionality
-    const navigationBtns = document.querySelectorAll('.navigation-btn');
-    navigationBtns.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            // Show loading state
-            this.classList.add('pointer-events-none');
-            
-            if (this.classList.contains('next-btn')) {
-                const loadingSpinner = document.createElement('span');
-                loadingSpinner.className = 'inline-block ml-1 spinner';
-                loadingSpinner.innerHTML = '⟳';
-                this.appendChild(loadingSpinner);
-            } else if (this.classList.contains('prev-btn')) {
-                const loadingSpinner = document.createElement('span');
-                loadingSpinner.className = 'inline-block mr-1 spinner';
-                loadingSpinner.innerHTML = '⟳';
-                this.prepend(loadingSpinner);
-            }
-            
-            // Continue with navigation - the link will work as normal
-        });
-    });
-    
-    // Add spinning animation for loading indicator
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .spinner {
-            animation: spin 1s linear infinite;
-            display: inline-block;
-        }
-    `;
-    document.head.appendChild(style);
-    
-    // Keyboard navigation support
-    document.addEventListener('keydown', function(e) {
-        // Skip if user is typing in an input field
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            return;
-        }
-        
-        // Left arrow key - previous topic
-        if (e.key === 'ArrowLeft') {
-            const prevBtn = document.querySelector('.prev-btn');
-            if (prevBtn) {
-                e.preventDefault();
-                prevBtn.click();
-            }
-        }
-        
-        // Right arrow key - next topic
-        if (e.key === 'ArrowRight') {
-            const nextBtn = document.querySelector('.next-btn');
-            if (nextBtn) {
-                e.preventDefault();
-                nextBtn.click();
-            }
-        }
-    });
-    
-    // Topic links within the sidebar
-    const topicLinks = document.querySelectorAll('.topic-link');
-    topicLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            const isActive = this.getAttribute('data-is-active') === 'true';
-            
-            // If topic isn't active, prevent navigation
-            if (!isActive) {
-                e.preventDefault();
-                // Optional: show a message that this topic is locked
-                const messageContainer = document.getElementById('messages-container');
-                if (messageContainer) {
-                    const lockMessage = document.createElement('div');
-                    lockMessage.className = 'p-3 mb-2 bg-yellow-100 text-yellow-800 rounded';
-                    lockMessage.textContent = 'This topic is locked. Please complete previous topics first.';
-                    messageContainer.appendChild(lockMessage);
-                    
-                    // Remove message after 3 seconds
-                    setTimeout(() => {
-                        lockMessage.remove();
-                    }, 3000);
-                }
-            }
-        });
-    });
 });
 </script>
 {% endblock %}

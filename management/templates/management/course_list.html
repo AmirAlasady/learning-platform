@@ -1,0 +1,41 @@
+{% extends 'management/base.html' %}
+
+{% block title %}Manage Courses{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Manage Courses</h1>
+        <a href="{% url 'management:course_create' %}" class="btn btn-primary">Create New Course</a>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Sections</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for course in courses %}
+                <tr>
+                    <td>{{ course.title }}</td>
+                    <td>{{ course.category.name }}</td>
+                    <td>${{ course.price }}</td>
+                    <td>{{ course.sections.count }}</td>
+                    <td class="actions">
+                        <!-- THIS IS THE FIX: The URL name is now 'manage_course' -->
+                        <a href="{% url 'management:manage_course' pk=course.pk %}">Manage</a>
+                        <a href="{% url 'management:course_delete' pk=course.pk %}" style="color: red;">Delete</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="5">No courses found. Create one to get started.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

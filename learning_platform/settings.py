@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     # user-defined apps
     'courses',
     'subscribtion',
+    'management'
 
 ]
 
